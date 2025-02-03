@@ -12,11 +12,11 @@ let persons = [
     { id: 4, name: "Mary Poppendieck", number: "39-23-6423122" }
 ];
 
-app.get('/api/persons', (req, res) => {
+app.get('https://puhelinluettelo-backend-3pv8.onrender.com/api/persons', (req, res) => {
     res.json(persons);
 });
 
-app.get('/api/persons/:id', (req, res) => {
+app.get('https://puhelinluettelo-backend-3pv8.onrender.com/api/persons/:id', (req, res) => {
     const id = Number(req.params.id);
     const person = persons.find(parameter => parameter.id === id);
 
@@ -27,13 +27,13 @@ app.get('/api/persons/:id', (req, res) => {
     }
 });
 
-app.delete('/api/persons/:id', (req, res) => {
+app.delete('https://puhelinluettelo-backend-3pv8.onrender.com/api/persons/:id', (req, res) => {
     const id = Number(req.params.id);
     persons = persons.filter(parameter => parameter.id !== id);
     res.status(204).end();
 });
 
-app.post('/api/persons', (req, res) => {
+app.post('https://puhelinluettelo-backend-3pv8.onrender.com/api/persons', (req, res) => {
     const {name, number} = req.body;
     
     if (!name || !number) {
