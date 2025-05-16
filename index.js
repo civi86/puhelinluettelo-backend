@@ -31,43 +31,39 @@ const personSchema = new mongoose.Schema({
 
 const Person = mongoose.model('Person', personSchema);
 
-app.get('/api/persons', async (req, res) => {
+app.get('/api/persons', async (req, res, next) => {
   try {
     const persons = await Person.find({});
     res.json(persons);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch persons' });
+    next(error);
   }
 });
 
-app.get('/api/persons/:id', async (req, res) => {
-  const id = req.params.id;
+app.get('/api/persons/:id', async (req, res, next) => {
   try {
-    const person = await Person.findById(id);
+    const person = await Person.findById(req.params.id);
     if (person) {
       res.json(person);
     } else {
       res.status(404).send({ error: 'Person not found' });
     }
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch person' });
+    next(error);
   }
 });
 
-app.delete('/api/persons/:id', async (req, res) => {
-  const id = req.params.id;
+app.delete('/api/persons/:id', async (req, res, next) => {
   try {
-    await Person.findByIdAndDelete(id);
+    await Person.findByIdAndDelete(req.params.id);
     res.status(204).end();
   } catch (error) {
-    res.status(500).json({ error: 'Failed to delete person' });
+    next(error);
   }
 });
 
-app.post('/api/persons', async (req, res) => {
+app.post('/api/persons', async (req, res, next) => {
   const { name, number } = req.body;
-  console.log("Received data:", req.body);
-
   if (!name || !number) {
     return res.status(400).json({ error: 'Name and number are required' });
   }
@@ -77,13 +73,25 @@ app.post('/api/persons', async (req, res) => {
     if (existingPerson) {
       return res.status(400).json({ error: 'Name must be unique' });
     }
-
     const newPerson = new Person({ name, number });
-    await newPerson.save();
-    res.status(201).json(newPerson);
+    const savedPerson = await newPerson.save();
+    res.status(201).json(savedPerson);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to add person' });
+    next(error);
   }
+});
+
+app.use((error, req, res, next) => {
+  console.error(error.message);
+
+  if (error.name === 'CastError' && error.kind === 'ObjectId') {
+    return res.status(400).send({ error: 'Wrong id' });
+  } 
+  if (error.name === 'ValidationError') {
+    return res.status(400).json({ error: error.message });
+  }
+
+  res.status(500).json({ error: 'Error' });
 });
 
 const PORT = process.env.PORT || 3001;
