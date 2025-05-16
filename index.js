@@ -1,71 +1,92 @@
-const express = require('express');
-const morgan = require('morgan');
-const cors = require('cors');
+import express from 'express';
+import morgan from 'morgan';
+import cors from 'cors';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 
 app.use(express.json());
-
 app.use(morgan('tiny'));
-
 app.use(cors());
 
-let persons = [
-    { id: 1, name: "Arto Hellas", number: "040-123456" },
-    { id: 2, name: "Ada Lovelace", number: "39-44-5323523" },
-    { id: 3, name: "Dan Abramov", number: "12-43-234345" },
-    { id: 4, name: "Mary Poppendieck", number: "39-23-6423122" }
-];
+const mongoUri = process.env.MONGO_URI;
 
-app.get('/api/persons', (req, res) => {
+mongoose.set('strictQuery', false);
+console.log('Mongo URI:', mongoUri);
+mongoose.connect(mongoUri)
+  .then(() => {
+    console.log('Connected to MongoDB');
+  })
+  .catch((error) => {
+    console.error('Error connecting to MongoDB:', error.message);
+  });
+
+const personSchema = new mongoose.Schema({
+  name: String,
+  number: String,
+});
+
+const Person = mongoose.model('Person', personSchema);
+
+app.get('/api/persons', async (req, res) => {
+  try {
+    const persons = await Person.find({});
     res.json(persons);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch persons' });
+  }
 });
 
-app.get('/api/persons/:id', (req, res) => {
-    const id = Number(req.params.id);
-    const person = persons.find(parameter => parameter.id === id);
-
+app.get('/api/persons/:id', async (req, res) => {
+  const id = req.params.id;
+  try {
+    const person = await Person.findById(id);
     if (person) {
-        res.json(person);
+      res.json(person);
     } else {
-        res.status(404).send({ error: "Person not found" });
+      res.status(404).send({ error: 'Person not found' });
     }
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch person' });
+  }
 });
 
-app.delete('/api/persons/:id', (req, res) => {
-    const id = Number(req.params.id);
-    persons = persons.filter(parameter => parameter.id !== id);
+app.delete('/api/persons/:id', async (req, res) => {
+  const id = req.params.id;
+  try {
+    await Person.findByIdAndDelete(id);
     res.status(204).end();
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to delete person' });
+  }
 });
 
-app.post('/api/persons', (req, res) => {
-    const { name, number } = req.body;
-    
-    if (!name || !number) {
-        return res.status(400).json({ error: "Name and number are required" });
+app.post('/api/persons', async (req, res) => {
+  const { name, number } = req.body;
+  console.log("Received data:", req.body);
+
+  if (!name || !number) {
+    return res.status(400).json({ error: 'Name and number are required' });
+  }
+
+  try {
+    const existingPerson = await Person.findOne({ name });
+    if (existingPerson) {
+      return res.status(400).json({ error: 'Name must be unique' });
     }
-    
-    if (persons.some(parameter => parameter.name === name)) {
-        return res.status(400).json({ error: "Name must be unique" });
-    }
-    
-    const newPerson = {
-        id: Math.floor(Math.random() * 9999999),
-        name,
-        number
-    };
-    
-    persons = [...persons, newPerson];
+
+    const newPerson = new Person({ name, number });
+    await newPerson.save();
     res.status(201).json(newPerson);
-});
-
-app.get('/info', (req, res) => {
-    const currentTime = new Date().toString();
-    const responseText = `Phonebook has info for ${persons.length} people\n${currentTime}`;
-    res.send(`<pre>${responseText}</pre>`);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to add person' });
+  }
 });
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
